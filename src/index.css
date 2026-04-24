@@ -6,7 +6,7 @@
   --tomato: #f95d42;
   --sky: #94e7f2;
   --body-font: 'Avenir Next', 'Trebuchet MS', sans-serif;
-  --display-font: Impact, Haettenschweiler, 'Arial Black', sans-serif;
+  --display-font: 'Avenir Next', 'Trebuchet MS', sans-serif;
   --mono-font: 'Andale Mono', 'Courier New', monospace;
   --soft-shadow: 0 24px 70px rgba(51, 41, 19, 0.13);
 
@@ -16,6 +16,7 @@
     radial-gradient(circle at 82% 10%, rgba(216, 255, 69, 0.5), transparent 26%),
     linear-gradient(145deg, #fffcee 0%, #fff3ca 44%, #f5fbf6 100%);
   font-family: var(--body-font);
+  font-weight: 400;
   font-size: 18px;
   font-synthesis: none;
   line-height: 1.5;
