@@ -68,7 +68,7 @@ function App() {
 
     setAuthMessage('')
 
-    const redirectTo = new URL('/', getSupabaseSiteUrl()).toString()
+    const redirectTo = new URL('/auth/callback', getSupabaseSiteUrl()).toString()
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {

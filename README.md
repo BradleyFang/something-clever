@@ -19,7 +19,7 @@ NEXT_PUBLIC_SITE_URL=http://localhost:5173
 For local Vite development that should usually be:
 
 ```text
-http://localhost:5173/
+http://localhost:5173/auth/callback
 ```
 
 3. Install and run:
