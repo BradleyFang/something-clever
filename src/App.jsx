@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import './App.css'
 import {
   getGoogleClientId,
@@ -6,15 +6,18 @@ import {
   getSupabaseConfigError,
   getSupabaseSiteUrl,
 } from './lib/supabase'
-
-const captionIdeas = [
-  'When the group chat says this will be a quick decision.',
-  'Me acting casual while the loading spinner judges my life choices.',
-  'POV: the demo worked once and now everyone expects a miracle.',
-]
+import { convertGifToMp4, generateCaptionsForGif } from './lib/gif-captioning'
 
 function App() {
   const [gifName, setGifName] = useState('')
+  const [selectedGif, setSelectedGif] = useState(null)
+  const [uploadPreviewUrl, setUploadPreviewUrl] = useState('')
+  const [convertedVideoId, setConvertedVideoId] = useState('')
+  const [captions, setCaptions] = useState([])
+  const [generationStatus, setGenerationStatus] = useState('idle')
+  const [generationMessage, setGenerationMessage] = useState('')
+  const [route, setRoute] = useState(() => getCurrentRoute())
+  const [resultGifUrl, setResultGifUrl] = useState('')
   const [session, setSession] = useState(null)
   const [authMessage, setAuthMessage] = useState(() => readAuthMessageFromUrl())
   const [authStatus, setAuthStatus] = useState(() =>
@@ -22,6 +25,7 @@ function App() {
   )
   const supabase = getSupabaseBrowserClient()
   const authConfigError = getSupabaseConfigError()
+  const previewRequestIdRef = useRef(0)
 
   useEffect(() => {
     if (!supabase) return
@@ -63,6 +67,30 @@ function App() {
     }
   }, [supabase])
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined
+
+    const handlePopState = () => {
+      setRoute(getCurrentRoute())
+    }
+
+    window.addEventListener('popstate', handlePopState)
+    return () => {
+      window.removeEventListener('popstate', handlePopState)
+    }
+  }, [])
+
+  useEffect(() => {
+    return () => {
+      if (uploadPreviewUrl) {
+        URL.revokeObjectURL(uploadPreviewUrl)
+      }
+      if (resultGifUrl) {
+        URL.revokeObjectURL(resultGifUrl)
+      }
+    }
+  }, [resultGifUrl, uploadPreviewUrl])
+
   const handleGoogleSignIn = async () => {
     if (!supabase || authConfigError) return
 
@@ -95,6 +123,125 @@ function App() {
     }
 
     setSession(null)
+  }
+
+  const handleGifSelection = async (event) => {
+    const file = event.target.files?.[0] ?? null
+    const previewRequestId = previewRequestIdRef.current + 1
+
+    previewRequestIdRef.current = previewRequestId
+
+    setUploadPreviewUrl((currentPreviewUrl) => {
+      if (currentPreviewUrl) {
+        URL.revokeObjectURL(currentPreviewUrl)
+      }
+
+      return file ? URL.createObjectURL(file) : ''
+    })
+    setSelectedGif(file)
+    setGifName(file?.name ?? '')
+    setGenerationMessage('')
+    setCaptions([])
+    setConvertedVideoId('')
+
+    if (!file) {
+      setGenerationStatus('idle')
+      return
+    }
+
+    if (file.type && file.type !== 'image/gif') {
+      setGenerationStatus('error')
+      setGenerationMessage('Please choose a GIF file before generating captions.')
+      return
+    }
+
+    setGenerationStatus('loading')
+    setGenerationMessage('Preparing your GIF for caption generation.')
+
+    try {
+      const conversion = await convertGifToMp4(file)
+
+      if (previewRequestId !== previewRequestIdRef.current) {
+        return
+      }
+
+      setConvertedVideoId(conversion.videoId ?? '')
+      setGenerationStatus('idle')
+      setGenerationMessage('GIF preview ready.')
+    } catch (error) {
+      if (previewRequestId !== previewRequestIdRef.current) {
+        return
+      }
+
+      setGenerationStatus('error')
+      setGenerationMessage(
+        error instanceof Error ? error.message : 'Unable to convert your GIF to MP4.'
+      )
+    }
+  }
+
+  const runCaptionPipeline = async (gifFile) => {
+    if (!gifFile) {
+      setGenerationStatus('error')
+      setGenerationMessage('Upload a GIF first.')
+      return
+    }
+
+    if (!convertedVideoId) {
+      setGenerationStatus('error')
+      setGenerationMessage('Wait for the GIF preview to finish loading first.')
+      return
+    }
+
+    setGenerationStatus('loading')
+    setGenerationMessage('Asking Gemini to caption the converted MP4.')
+
+    try {
+      const captionResult = await generateCaptionsForGif(convertedVideoId)
+      const generatedCaptions = Array.isArray(captionResult.captions)
+        ? captionResult.captions
+        : []
+
+      setCaptions(
+        generatedCaptions.map((caption, index) => ({
+          id: caption.id ?? `${caption.content}-${index}`,
+          content: caption.content ?? 'No caption text returned.',
+        }))
+      )
+      const nextResultGifUrl = URL.createObjectURL(gifFile)
+      if (resultGifUrl) {
+        URL.revokeObjectURL(resultGifUrl)
+      }
+      setResultGifUrl(nextResultGifUrl)
+      setGenerationStatus('success')
+      setGenerationMessage(
+        `Caption generated with ${captionResult.model ?? 'Gemini'}.`
+      )
+      navigateTo('/results', setRoute)
+    } catch (error) {
+      setGenerationStatus('error')
+      setGenerationMessage(
+        error instanceof Error
+          ? error.message
+          : 'Gemini video captioning is not available yet.'
+      )
+      setCaptions([])
+    }
+  }
+
+  const handleGenerateCaptions = async () => {
+    await runCaptionPipeline(selectedGif)
+  }
+
+  const handleCopyCaption = async (caption) => {
+    try {
+      await navigator.clipboard.writeText(caption)
+      setGenerationStatus('success')
+      setGenerationMessage('Caption copied to clipboard.')
+    } catch {
+      setGenerationStatus('error')
+      setGenerationMessage('Unable to copy the caption.')
+    }
   }
 
   if (authStatus === 'loading') {
@@ -161,17 +308,37 @@ function App() {
   const userLabel =
     session.user.user_metadata?.full_name ?? session.user.email ?? 'Signed in'
 
+  if (route === '/results') {
+    return (
+      <ResultsPage
+        captions={captions}
+        gifName={gifName}
+        resultGifUrl={resultGifUrl}
+        userLabel={userLabel}
+        onBack={() => navigateTo('/', setRoute)}
+        onCopyCaption={handleCopyCaption}
+        onSignOut={handleSignOut}
+      />
+    )
+  }
+
   return (
     <main className="page-shell">
       <nav className="nav-bar" aria-label="Primary">
-        <a className="brand" href="/">
+        <a
+          className="brand"
+          href="/"
+          onClick={(event) => {
+            event.preventDefault()
+            navigateTo('/', setRoute)
+          }}
+        >
           <span className="brand-mark">G</span>
           GifGiggle
         </a>
         <div className="nav-links" aria-label="Page sections">
           <a href="#upload">Upload</a>
-          <a href="#captions">Captions</a>
-          <a href="#how-it-works">How it works</a>
+          <a href="#upload">Generate</a>
         </div>
         <div className="nav-actions">
           <span className="user-chip">{userLabel}</span>
@@ -184,34 +351,32 @@ function App() {
       <section className="hero-section">
         <div className="hero-copy">
           <p className="eyebrow">Caption lab for moving memes</p>
-          <h1>Drop in a GIF. Walk away with three caption angles.</h1>
+          <h1>Drop in a GIF. Generate captions on the next page.</h1>
           <p className="hero-text">
-            A playful front door for turning a reaction GIF into punchlines,
-            alternate takes, and scroll-stopping social copy.
+            Upload a GIF here, run caption generation, and then review the
+            output on a dedicated result screen.
           </p>
           <div className="hero-actions">
             <a className="primary-action" href="#upload">
-              Try the mock flow
+              Upload a GIF
             </a>
-            <a className="secondary-action" href="#captions">
-              Preview outputs
+            <a className="secondary-action" href="#upload">
+              Generate captions
             </a>
           </div>
         </div>
 
         <section className="generator-card" id="upload" aria-label="GIF upload">
           <div className="card-header">
-            <span className="status-pill">UI preview</span>
-            <span>3 captions queued</span>
+            <span className="status-pill">{getStatusPillLabel(generationStatus)}</span>
+            <span>{getCardHeaderLabel(generationStatus, captions.length)}</span>
           </div>
 
           <label className="drop-zone">
             <input
               type="file"
               accept="image/gif"
-              onChange={(event) =>
-                setGifName(event.target.files?.[0]?.name ?? '')
-              }
+              onChange={handleGifSelection}
             />
             <span className="upload-icon" aria-hidden="true">
               GIF
@@ -222,62 +387,117 @@ function App() {
             </span>
           </label>
 
-          <div className="tone-row" aria-label="Caption tones">
-            <button type="button">Dry</button>
-            <button type="button">Chaotic</button>
-            <button type="button">Work-safe</button>
-          </div>
+          {uploadPreviewUrl ? (
+            <div className="upload-preview-card">
+              <p className="section-kicker">GIF preview</p>
+              <div className="upload-preview-frame">
+                <img
+                  className="upload-preview-image"
+                  src={uploadPreviewUrl}
+                  alt="Uploaded GIF preview"
+                />
+              </div>
+            </div>
+          ) : null}
 
-          <button className="generate-button" type="button">
-            Generate 3 captions
+          <button
+            className="generate-button"
+            type="button"
+            onClick={handleGenerateCaptions}
+            disabled={generationStatus === 'loading' || !convertedVideoId}
+          >
+            {getGenerateButtonLabel(generationStatus, Boolean(uploadPreviewUrl))}
           </button>
+
+          <p className={`generation-banner generation-banner-${generationStatus}`} aria-live="polite">
+            {generationMessage || ' '}
+          </p>
         </section>
       </section>
+    </main>
+  )
+}
 
-      <section
-        className="caption-preview"
-        id="captions"
-        aria-labelledby="caption-heading"
-      >
-        <div>
-          <p className="section-kicker">Output preview</p>
-          <h2 id="caption-heading">Three ready-to-edit caption cards</h2>
+function ResultsPage({
+  captions,
+  resultGifUrl,
+  userLabel,
+  onBack,
+  onCopyCaption,
+  onSignOut,
+}) {
+  const hasResults = resultGifUrl && captions.length > 0
+
+  return (
+    <main className="results-page-shell">
+      <nav className="nav-bar" aria-label="Primary">
+        <a
+          className="brand"
+          href="/"
+          onClick={(event) => {
+            event.preventDefault()
+            onBack()
+          }}
+        >
+          <span className="brand-mark">G</span>
+          GifGiggle
+        </a>
+        <div className="nav-actions">
+          <span className="user-chip">{userLabel}</span>
+          <button className="logout-button" type="button" onClick={onSignOut}>
+            Log out
+          </button>
         </div>
-        <div className="caption-grid">
-          {captionIdeas.map((caption, index) => (
-            <article className="caption-card" key={caption}>
-              <span>Option {index + 1}</span>
-              <p>{caption}</p>
-              <button type="button">Copy caption</button>
+      </nav>
+
+      <section className="results-page">
+        <div className="results-toolbar">
+          <button className="secondary-action" type="button" onClick={onBack}>
+            Back to upload
+          </button>
+        </div>
+
+        {hasResults ? (
+          <div className="results-layout">
+            <article className="result-gif-card">
+              <p className="section-kicker">Uploaded GIF</p>
+              <div className="result-gif-frame">
+                <img className="result-gif" src={resultGifUrl} alt="Uploaded GIF" />
+              </div>
             </article>
-          ))}
-        </div>
-      </section>
 
-      <section
-        className="steps-section"
-        id="how-it-works"
-        aria-labelledby="steps-heading"
-      >
-        <p className="section-kicker">Simple flow</p>
-        <h2 id="steps-heading">Built for the real feature later</h2>
-        <div className="steps-grid">
-          <article>
-            <strong>1</strong>
-            <h3>Upload</h3>
-            <p>Give the interface a GIF and a clear next action.</p>
-          </article>
-          <article>
-            <strong>2</strong>
-            <h3>Pick tone</h3>
-            <p>Let people steer the vibe before generation happens.</p>
-          </article>
-          <article>
-            <strong>3</strong>
-            <h3>Choose caption</h3>
-            <p>Show three outputs with quick copy affordances.</p>
-          </article>
-        </div>
+            <section className="result-captions-panel" aria-labelledby="result-captions-heading">
+              <p className="section-kicker">Generated captions</p>
+              <h2 id="result-captions-heading">Caption output</h2>
+              <div className="caption-grid">
+                {captions.map((caption, index) => (
+                  <article className="caption-card" key={getCaptionKey(caption, index)}>
+                    <span>Option {index + 1}</span>
+                    <p>{getCaptionContent(caption)}</p>
+                    <button
+                      type="button"
+                      onClick={() => onCopyCaption(getCaptionContent(caption))}
+                    >
+                      Copy caption
+                    </button>
+                  </article>
+                ))}
+              </div>
+            </section>
+          </div>
+        ) : (
+          <section className="results-empty">
+            <p className="section-kicker">No result yet</p>
+            <h1>Generate a caption first.</h1>
+            <p className="hero-text">
+              Upload a GIF on the landing page and press generate to see the GIF
+              and its captions here.
+            </p>
+            <button className="primary-action" type="button" onClick={onBack}>
+              Go to upload
+            </button>
+          </section>
+        )}
       </section>
     </main>
   )
@@ -308,6 +528,50 @@ function readAuthMessageFromUrl() {
 
   const params = new URL(window.location.href).searchParams
   return params.get('error_description') ?? params.get('error') ?? ''
+}
+
+function getCaptionContent(caption) {
+  return typeof caption === 'string' ? caption : caption.content
+}
+
+function getCaptionKey(caption, index) {
+  if (typeof caption === 'string') return `${caption}-${index}`
+  return caption.id ?? `${caption.content}-${index}`
+}
+
+function getStatusPillLabel(status) {
+  if (status === 'loading') return 'Converting GIF'
+  if (status === 'success') return 'Live results'
+  if (status === 'error') return 'Check input'
+  return 'Ready'
+}
+
+function getCardHeaderLabel(status, captionCount) {
+  if (status === 'loading') return 'Preparing GIF preview'
+  if (status === 'success') {
+    return captionCount > 0 ? `${captionCount} captions generated` : 'GIF preview ready'
+  }
+  if (status === 'error') return 'Fix the issue and try again'
+  return 'Upload a GIF to start'
+}
+
+function getCurrentRoute() {
+  if (typeof window === 'undefined') return '/'
+
+  return window.location.pathname === '/results' ? '/results' : '/'
+}
+
+function getGenerateButtonLabel(status, hasPreview) {
+  if (status !== 'loading') return 'Generate captions'
+  return hasPreview ? 'Preparing results...' : 'Converting preview...'
+}
+
+function navigateTo(path, setRoute) {
+  if (typeof window !== 'undefined' && window.location.pathname !== path) {
+    window.history.pushState({}, '', path)
+  }
+
+  setRoute(path)
 }
 
 function GoogleIcon() {
