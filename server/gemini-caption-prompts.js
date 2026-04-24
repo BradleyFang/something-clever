@@ -137,7 +137,7 @@ Caption: How it feels at 6 years old learning the sun gonna explode in 5 billion
 Explanation: This is funny because it draws on the canon experience many people have as kids when they find out about the life cycle of a star, which is overreacting and being really upset and scared that the sun is going to explode even though reasonably none of us are going to be around when it happens.
 ****
 
-Image Description: The image shows a small dog, likely a Chihuahua, with a hilariously messy look. The dog is wearing a long, wild black wig that sticks out in all directions, making it look like it just woke up from a chaotic nap or had a rough morning. It’s also dressed in a light purple outfit and has a slightly smug, sleepy facial expression. The combination of the wild hair and calm, unbothered face gives the image a comically dramatic vibe — like the dog’s having a “bad hair day” but doesn’t care at all.
+Image Description: The image shows a small-sized dog, likely a Chihuahua, with a hilariously messy look. The dog is wearing a long, wild black wig that sticks out in all directions, making it look like it just woke up from a chaotic nap or had a rough morning. It’s also dressed in a light purple outfit and has a slightly smug, sleepy facial expression. The combination of the wild hair and calm, unbothered face gives the image a comically dramatic vibe — like the dog’s having a “bad hair day” but doesn’t care at all.
 Caption: Hard work gives you a special kind of glow
 My glow:
 
