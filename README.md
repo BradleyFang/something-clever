@@ -1,16 +1,35 @@
-# React + Vite
+# GifGiggle
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+This Vite app now uses the same Google login method as `funnystudy`: Supabase OAuth with Google, passing the Google `client_id` explicitly and letting Supabase manage the browser session.
 
-Currently, two official plugins are available:
+## Setup
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+1. Copy `.env.example` to `.env` and fill in:
 
-## React Compiler
+```bash
+NEXT_PUBLIC_SUPABASE_URL=...
+NEXT_PUBLIC_SUPABASE_ANON_KEY=...
+NEXT_PUBLIC_GOOGLE_CLIENT_ID=...
+# Optional
+NEXT_PUBLIC_SITE_URL=http://localhost:5173
+```
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+2. In Supabase, enable Google OAuth and add your redirect URL.
 
-## Expanding the ESLint configuration
+For local Vite development that should usually be:
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+```text
+http://localhost:5173/
+```
+
+3. Install and run:
+
+```bash
+npm install
+npm run dev
+```
+
+## Notes
+
+- `vite.config.js` accepts both `VITE_*` and `NEXT_PUBLIC_*` env names so this app can share the same auth variable naming as the Next.js project.
+- The Next.js app uses server routes and middleware for auth cookies. This Vite app uses the browser Supabase client instead, which is the equivalent approach for a single-page frontend.

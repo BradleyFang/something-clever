@@ -5,6 +5,67 @@
   padding: 28px clamp(18px, 4vw, 58px) 56px;
 }
 
+.auth-shell {
+  display: grid;
+  min-height: 100svh;
+  padding: 28px clamp(18px, 4vw, 58px);
+  place-items: center;
+}
+
+.auth-panel {
+  width: min(1120px, 100%);
+  padding: clamp(24px, 4vw, 42px);
+  border: 2px solid var(--ink);
+  border-radius: 36px;
+  background:
+    radial-gradient(circle at 18% 18%, rgba(249, 93, 66, 0.18), transparent 28%),
+    radial-gradient(circle at 82% 8%, rgba(216, 255, 69, 0.38), transparent 26%),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.94), rgba(255, 247, 215, 0.92)),
+    var(--paper);
+  box-shadow: 16px 16px 0 rgba(20, 25, 23, 0.92);
+}
+
+.auth-panel-loading {
+  max-width: 720px;
+}
+
+.auth-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(320px, 0.85fr);
+  gap: clamp(24px, 4vw, 56px);
+  align-items: center;
+}
+
+.auth-copy {
+  animation: rise-in 650ms ease both;
+}
+
+.auth-preview {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.auth-preview span,
+.user-chip {
+  padding: 10px 12px;
+  border: 2px solid var(--ink);
+  border-radius: 999px;
+  background: rgba(255, 252, 238, 0.86);
+  box-shadow: 6px 6px 0 rgba(20, 25, 23, 0.12);
+  font-family: var(--mono-font);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.auth-card {
+  padding: clamp(20px, 3vw, 30px);
+  border: 2px solid var(--ink);
+  border-radius: 32px;
+  background: rgba(255, 252, 238, 0.84);
+  box-shadow: 12px 12px 0 rgba(20, 25, 23, 0.16);
+}
+
 .nav-bar {
   display: flex;
   align-items: center;
@@ -62,6 +123,12 @@
 
 .nav-links a:hover {
   background: var(--paper);
+}
+
+.nav-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
 .hero-section {
@@ -130,6 +197,17 @@ h3 {
   font-size: clamp(1.05rem, 2vw, 1.28rem);
 }
 
+.auth-note {
+  margin-bottom: 18px;
+  color: var(--muted);
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.auth-preview span {
+  white-space: nowrap;
+}
+
 .hero-actions {
   display: flex;
   flex-wrap: wrap;
@@ -140,7 +218,9 @@ h3 {
 .secondary-action,
 .generate-button,
 .caption-card button,
-.tone-row button {
+.tone-row button,
+.google-auth-button,
+.logout-button {
   border: 2px solid var(--ink);
   color: var(--ink);
   font: 900 0.96rem/1 var(--body-font);
@@ -167,6 +247,58 @@ h3 {
   background: var(--paper);
   color: var(--ink);
   box-shadow: 8px 8px 0 rgba(20, 25, 23, 0.13);
+}
+
+.google-auth-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 56px;
+  padding: 0 18px;
+  border-radius: 20px;
+  background: var(--acid);
+  box-shadow: 8px 8px 0 rgba(20, 25, 23, 0.92);
+}
+
+.google-auth-button:hover,
+.logout-button:hover,
+.tone-row button:hover,
+.caption-card button:hover,
+.generate-button:hover,
+.primary-action:hover,
+.secondary-action:hover {
+  transform: translate(-2px, -2px);
+}
+
+.google-auth-button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.google-auth-icon {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  place-items: center;
+  border: 2px solid var(--ink);
+  border-radius: 14px;
+  background: rgba(255, 252, 238, 0.94);
+}
+
+.google-logo {
+  width: 20px;
+  height: 20px;
+}
+
+.message-banner {
+  min-height: 48px;
+  margin: 14px 0 0;
+  color: var(--tomato);
+  font-size: 0.95rem;
+  font-weight: 800;
 }
 
 .generator-card {
@@ -298,14 +430,6 @@ h3 {
   background: var(--acid);
 }
 
-.tone-row button:hover,
-.caption-card button:hover,
-.generate-button:hover,
-.primary-action:hover,
-.secondary-action:hover {
-  transform: translate(-2px, -2px);
-}
-
 .generate-button {
   width: 100%;
   padding: 18px;
@@ -426,6 +550,15 @@ h3 {
   color: var(--muted);
 }
 
+.logout-button {
+  width: auto;
+  min-height: 44px;
+  padding: 0 18px;
+  border-radius: 999px;
+  background: var(--paper);
+  box-shadow: 6px 6px 0 rgba(20, 25, 23, 0.13);
+}
+
 @keyframes rise-in {
   from {
     opacity: 0;
@@ -467,6 +600,7 @@ h3 {
   }
 
   .nav-bar,
+  .auth-grid,
   .hero-section,
   .caption-preview {
     grid-template-columns: 1fr;
@@ -474,10 +608,16 @@ h3 {
 
   .nav-bar {
     align-items: flex-start;
+    flex-wrap: wrap;
   }
 
   .nav-links {
     display: none;
+  }
+
+  .nav-actions {
+    width: 100%;
+    justify-content: space-between;
   }
 
   .hero-section {
@@ -514,8 +654,14 @@ h3 {
   }
 
   .primary-action,
-  .secondary-action {
+  .secondary-action,
+  .logout-button {
     width: 100%;
+  }
+
+  .nav-actions {
+    flex-direction: column;
+    align-items: stretch;
   }
 
   .tone-row {
